@@ -30,12 +30,6 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, "public")));
 
-const cookieOptionShort = {
-  httpOnly: true,
-  maxAge: 10 * 1000,
-  path: "/",
-};
-
 app.get("/", (req, res) => {
   res.render("index");
 });
@@ -127,7 +121,7 @@ app.post("/register", async (req, res) => {
         maxAge: 7 * 24 * 60 * 60 * 1000,
       });
 
-      res.cookie("token", accessToken, cookieOptionShort);
+      res.cookie("token", accessToken, { ...securityConfig.cookie });
       res.send("Registered");
     });
   });
@@ -173,13 +167,13 @@ app.post("/login", async (req, res) => {
         ...securityConfig.cookie,
         maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
       });
-      res.cookie("token", accessToken, cookieOptionShort);
+      res.cookie("token", accessToken, { ...securityConfig.cookie });
       return res.status(200).send("You can login");
     } else res.redirect("/login");
   });
 });
 
-app.post("/refresh-token", refreshAccessToken);
+app.get("/refresh-token", refreshAccessToken);
 
 app.get("/logout", async (req, res) => {
   try {

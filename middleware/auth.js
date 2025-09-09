@@ -1,8 +1,11 @@
 import {
   verifyAccessToken,
   verifyRefreshToken,
+  generateAccessToken,
+  generateRefreshToken,
 } from "../config/tokenService.js";
 import userModel from "../models/user.js";
+import { securityConfig } from "../config/security.js";
 
 // Middleware to check access token
 export const authenticateAccessToken = (req, res, next) => {
@@ -54,7 +57,6 @@ export const refreshAccessToken = async (req, res) => {
     // Check if refresh token is expired
     if (storedToken.expiresAt < new Date()) {
       // Remove expired token
-      await user.removeRefreshToken(refreshToken);
       return res.status(403).json({ message: "Expired refresh token" });
     }
 
@@ -89,6 +91,7 @@ export const refreshAccessToken = async (req, res) => {
       expiresIn: securityConfig.jwt.accessExpiresIn,
     });
   } catch (error) {
+    console.log("Error: ", error);
     return res.status(403).json({ message: "Invalid refresh token" });
   }
 };
