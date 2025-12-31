@@ -9,8 +9,14 @@ export const securityConfig = {
   cookie: {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
-    maxAge: 24 * 60 * 60 * 1000,
     path: "/",
+    sameSite: "lax",
+  },
+  accessTokenDuration: {
+    maxAge: 24 * 60 * 60 * 1000, // 1 day
+  },
+  refreshTokenDuration: {
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
   },
   bcrypt: {
     saltRounds: 12,

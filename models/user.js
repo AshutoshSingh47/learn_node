@@ -1,6 +1,4 @@
-import { connect, Schema, model } from "mongoose";
-
-connect(process.env.MONGODB_URI);
+import { Schema, model } from "mongoose";
 
 const userSchema = new Schema({
   username: String,

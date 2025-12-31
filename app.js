@@ -6,6 +6,7 @@ import path from "path";
 import jwt from "jsonwebtoken";
 import postModel from "./models/post.js";
 import userModel from "./models/user.js";
+import { connectDB } from "./config/db.js";
 import upload from "./config/multerconfig.js";
 import { fileURLToPath } from "url";
 import { securityConfig } from "./config/security.js";
@@ -118,10 +119,13 @@ app.post("/register", async (req, res) => {
       await newUser.addRefreshToken(refreshToken, expiresAt);
       res.cookie("refreshToken", refreshToken, {
         ...securityConfig.cookie,
-        maxAge: 7 * 24 * 60 * 60 * 1000,
+        ...securityConfig.refreshTokenDuration,
       });
 
-      res.cookie("token", accessToken, { ...securityConfig.cookie });
+      res.cookie("token", accessToken, {
+        ...securityConfig.cookie,
+        ...securityConfig.accessTokenDuration,
+      });
       res.send("Registered");
     });
   });
@@ -165,14 +169,18 @@ app.post("/login", async (req, res) => {
 
       res.cookie("refreshToken", refreshToken, {
         ...securityConfig.cookie,
-        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+        ...securityConfig.refreshTokenDuration,
       });
-      res.cookie("token", accessToken, { ...securityConfig.cookie });
+      res.cookie("token", accessToken, {
+        ...securityConfig.cookie,
+        ...securityConfig.accessTokenDuration,
+      });
       return res.status(200).send("You can login");
     } else res.redirect("/login");
   });
 });
 
+// Use POST for refresh to avoid accidental/cached invocation
 app.get("/refresh-token", refreshAccessToken);
 
 app.get("/logout", async (req, res) => {
@@ -234,4 +242,13 @@ function isLoggedIn(req, res, next) {
   }
 }
 
-app.listen(PORT, () => console.log("Server running successfully"));
+// Connect to MongoDB first, then start the server
+connectDB()
+  .then(() => {
+    console.log("MongoDB connected");
+    app.listen(PORT, () => console.log("Server running successfully"));
+  })
+  .catch((err) => {
+    console.error("Failed to connect to MongoDB:", err.message);
+    process.exit(1);
+  });

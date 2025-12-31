@@ -9,8 +9,11 @@ import { securityConfig } from "../config/security.js";
 
 // Middleware to check access token
 export const authenticateAccessToken = (req, res, next) => {
+  // Prefer cookie token, fallback to Authorization header
+  const cookieToken = req.cookies?.token;
   const authHeader = req.headers["authorization"];
-  const token = authHeader && authHeader.split(" ")[1]; // Bearer TOKEN
+  const headerToken = authHeader && authHeader.split(" ")[1]; // Bearer TOKEN
+  const token = cookieToken || headerToken;
 
   if (!token) {
     return res.status(401).json({ message: "Access token required" });
@@ -40,8 +43,12 @@ export const refreshAccessToken = async (req, res) => {
     // Find user and check if refresh token exists
     const user = await userModel.findById(decoded.userid);
     if (!user) {
+      console.log("User not found")
       return res.status(403).json({ message: "Invalid refresh token" });
     }
+
+    // Cleanup expired tokens proactively
+    await user.removeExpiredRefreshTokens();
 
     // Check if refresh token exists in user's tokens
     const storedToken = user.refreshTokens.find(
@@ -51,12 +58,14 @@ export const refreshAccessToken = async (req, res) => {
       // Security: If token not found, invalidate all refresh tokens
       user.refreshTokens = [];
       await user.save();
+      console.log("Stored token not found")
       return res.status(403).json({ message: "Invalid refresh token" });
     }
 
     // Check if refresh token is expired
     if (storedToken.expiresAt < new Date()) {
-      // Remove expired token
+      // Remove expired token and reject
+      await user.removeRefreshToken(refreshToken);
       return res.status(403).json({ message: "Expired refresh token" });
     }
 
@@ -83,13 +92,15 @@ export const refreshAccessToken = async (req, res) => {
     // Send new tokens
     res.cookie("refreshToken", newRefreshToken, {
       ...securityConfig.cookie,
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      ...securityConfig.refreshTokenDuration,
     });
 
-    res.json({
-      accessToken: newAccessToken,
-      expiresIn: securityConfig.jwt.accessExpiresIn,
+    res.cookie("token", newAccessToken, {
+      ...securityConfig.cookie,
+      ...securityConfig.accessTokenDuration,
     });
+
+    res.status(200).json({ message: "Tokens refreshed" });
   } catch (error) {
     console.log("Error: ", error);
     return res.status(403).json({ message: "Invalid refresh token" });
